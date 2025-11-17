@@ -1,9 +1,14 @@
 package com.talentai.backend.candidate;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
 
-public record CandidateRequest(
-        @NotBlank String fullName,
-        @Email String email
-) { }
+@Data
+public class CandidateRequest {
+    private String fullName;
+    private String email;
+
+    // --- NOUVEAUX CHAMPS AJOUTÉS ---
+    private String titre;
+    private String telephone;
+    // --- FIN DES AJOUTS ---
+}

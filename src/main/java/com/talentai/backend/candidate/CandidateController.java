@@ -11,7 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/candidates")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Note : "*" est ok pour le dev, mais à changer pour la prod
 public class CandidateController {
 
     private final CandidateService service;
@@ -66,7 +66,7 @@ public class CandidateController {
     @PostMapping("/{id}/evaluate")
     public ResponseEntity<Integer> evaluate(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody Map<String, Object> body) throws IOException {
 
         String description = (String) body.get("jobDescription");
         Long offerId = Long.valueOf(body.get("offerId").toString());
@@ -75,5 +75,18 @@ public class CandidateController {
         return ResponseEntity.ok(score);
     }
 
+
+    /**
+     * Gère la mise à jour des informations textuelles du profil candidat.
+     * Appelé par le frontend depuis CandidateProfile.js
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Candidate> updateCandidate(
+            @PathVariable Long id,
+            @Valid @RequestBody CandidateRequest req) {
+
+        Candidate updatedCandidate = service.updateCandidate(id, req);
+        return ResponseEntity.ok(updatedCandidate);
+    }
 
 }
