@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { API } from "../api";
-import { useNavigate } from "react-router-dom"; // <--- 1. Importer useNavigate
+import { API } from "../api"; // Assurez-vous d'importer votre instance API
+import { useNavigate } from "react-router-dom";
 
 export default function CandidateProfile() {
-  const [candidateId, setCandidateId] = useState(localStorage.getItem("userId"));
+  const [candidateId] = useState(localStorage.getItem("userId"));
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [telephone, setTelephone] = useState(""); // Nouveau champ
   const [titre, setTitre] = useState(""); // Nouveau champ (ex: "Développeur React")
   const [cv, setCv] = useState(null);
   const [message, setMessage] = useState(null);
-  const navigate = useNavigate(); // <--- 2. Initialiser le hook
+  const navigate = useNavigate();
 
-  // Charger les données du candidat au démarrage
+  // --- C'EST CE BLOC QUI RÉCUPÈRE LES DONNÉES ---
+  // Il se lance une seule fois au chargement de la page
   useEffect(() => {
     if (!candidateId) {
       setMessage({ type: "danger", text: "Erreur: ID Candidat non trouvé. Veuillez vous reconnecter." });
@@ -23,19 +24,21 @@ export default function CandidateProfile() {
       try {
         const res = await API.get(`/candidates/${candidateId}`);
         const { data } = res;
-        setFullName(data.fullName);
-        setEmail(data.email);
+        // On remplit les états avec les données de la BDD
+        setFullName(data.fullName || "");
+        setEmail(data.email || "");
         setTelephone(data.telephone || "");
         setTitre(data.titre || "");
       } catch (err) {
         console.error(err);
+        // Si le profil n'existe pas encore (cas d'un nouvel utilisateur)
         setMessage({ type: "info", text: "Complétez votre profil pour postuler." });
       }
     };
     loadProfile();
-  }, [candidateId]);
+  }, [candidateId]); // Ne se relance que si candidateId change
 
-  // Mettre à jour les informations ET le CV
+  // --- C'EST CE BLOC QUI ENVOIE LES MODIFICATIONS ---
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setMessage(null);
@@ -61,14 +64,14 @@ export default function CandidateProfile() {
         const data = new FormData();
         data.append("file", cv);
 
-        // Note: L'upload de fichier FormData fonctionne mieux avec l'URL complète
-        await axios.post(
-          `http://localhost:8080/api/candidates/${candidateId}/cv`,
+        // --- CORRECTION : Utilisation de API.post au lieu d'axios ---
+        await API.post(
+          `/candidates/${candidateId}/cv`, // L'URL est relative à l'API
           data,
           { headers: { "Content-Type": "multipart/form-data" } }
         );
         setMessage({ type: "success", text: "✅ Profil et CV mis à jour !" });
-        setCv(null);
+        setCv(null); // Réinitialise le champ de fichier
       } catch (err) {
         console.error(err);
         setMessage({ type: "danger", text: "❌ Profil mis à jour, mais erreur lors de l'envoi du CV." });
@@ -78,12 +81,14 @@ export default function CandidateProfile() {
 
   return (
     <div className="container mt-4" style={{ maxWidth: 600 }}>
-      {/* --- 3. Bouton de retour ajouté --- */}
       <button className="btn btn-link px-0 mb-2" onClick={() => navigate("/")}>
         ⬅ Retour au Dashboard
       </button>
 
       <h3>🧍 Profil candidat</h3>
+      <p className="text-muted">
+        Vos informations sont utilisées pour postuler plus rapidement aux offres.
+      </p>
 
       {message && <div className={`alert alert-${message.type} mt-3`}>{message.text}</div>}
 
