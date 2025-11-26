@@ -78,6 +78,13 @@ public class EvaluationController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/candidate/{candidateId}/offer-ids")
+    public List<Long> getAppliedOfferIds(@PathVariable Long candidateId) {
+        return repository.findByCandidateId(candidateId).stream()
+                .map(eval -> eval.getOffer().getId())
+                .collect(Collectors.toList());
+    }
+
     public record EvaluationDTO(
             Long id,
             Long candidateId,

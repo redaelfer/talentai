@@ -1,104 +1,139 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { API } from "../api";
-import { useNavigate } from "react-router-dom";
 
 export default function CandidateDashboard() {
   const [offers, setOffers] = useState([]);
-  const [candidateId] = useState(localStorage.getItem("userId"));
+  const [candidateId] = useState(() => localStorage.getItem("userId"));
   const [query, setQuery] = useState("");
-  const navigate = useNavigate();
+
+  // État pour le profil complet (pour le matching)
+  const [candidateProfile, setCandidateProfile] = useState(null);
+
+  // --- NOUVEAU : Liste des IDs des offres déjà postulées ---
+  const [appliedOfferIds, setAppliedOfferIds] = useState([]);
+
+  // --- ÉTAT DE CHARGEMENT ---
+  const [applyingOfferId, setApplyingOfferId] = useState(null);
 
   // --- États pour le modal de profil ---
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-
-  // États pour les champs du formulaire (Titre, Tel, CV)
   const [titre, setTitre] = useState("");
   const [telephone, setTelephone] = useState("");
   const [cv, setCv] = useState(null);
-
-  // États "cachés" (Nom, Email)
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-
   const [profileMessage, setProfileMessage] = useState(null);
 
-  // --- NOUVEAU : État pour le chargement de la candidature ---
-  const [isApplying, setIsApplying] = useState(null); // Stocke l'ID de l'offre en cours ou null
-  // ----------------------------------------------------------
+  // --- Chargement des données (Offres + Profil + Candidatures existantes) ---
+  const loadData = useCallback(async () => {
+    try {
+      // 1. Récupérer les offres
+      const offersRes = await API.get("/offers");
+      setOffers(offersRes.data);
+
+      // 2. Si connecté, récupérer profil et candidatures
+      if (candidateId) {
+        const profileRes = await API.get(`/candidates/${candidateId}`);
+        setCandidateProfile(profileRes.data);
+
+        if (profileRes.data) {
+            setFullName(profileRes.data.fullName || "");
+            setEmail(profileRes.data.email || "");
+            setTitre(profileRes.data.titre || "");
+            setTelephone(profileRes.data.telephone || "");
+        }
+
+        // --- NOUVEAU : Récupérer les offres déjà postulées ---
+        try {
+            const appliedRes = await API.get(`/evaluations/candidate/${candidateId}/offer-ids`);
+            setAppliedOfferIds(appliedRes.data);
+        } catch (err) {
+            console.error("Erreur chargement candidatures", err);
+        }
+      }
+    } catch (err) {
+      console.error("Erreur chargement données", err);
+    }
+  }, [candidateId]);
 
   useEffect(() => {
-    loadOffers();
-  }, []);
+    loadData();
+  }, [loadData]);
 
-  const loadOffers = async () => {
-    try {
-      const res = await API.get("/offers");
-      setOffers(res.data);
-    } catch (err) {
-      console.error("Erreur chargement offres", err);
-    }
-  };
-
+  // --- Logique de Filtrage et Matching ---
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
-    return offers.filter(o =>
+
+    let result = offers.filter(o =>
       o.title?.toLowerCase().includes(q) ||
       o.skills?.toLowerCase().includes(q) ||
       o.description?.toLowerCase().includes(q) ||
-      (o.rh?.nomEntreprise?.toLowerCase().includes(q)) // Recherche aussi par entreprise
+      (o.rh?.nomEntreprise?.toLowerCase().includes(q))
     );
-  }, [offers, query]);
+
+    if (candidateProfile && candidateProfile.titre) {
+        const myTitle = candidateProfile.titre.toLowerCase();
+        result.sort((a, b) => {
+            let scoreA = a.title.toLowerCase().includes(myTitle) ? 10 : 0;
+            let scoreB = b.title.toLowerCase().includes(myTitle) ? 10 : 0;
+            return scoreB - scoreA;
+        });
+    }
+    return result;
+  }, [offers, query, candidateProfile]);
 
 
+  // --- ACTION POSTULER ---
   const handleApply = async (offer) => {
     if (!candidateId) {
-      alert("Erreur: ID Candidat non trouvé.");
+      alert("Erreur: ID Candidat non trouvé. Veuillez vous reconnecter.");
       return;
     }
 
-    // Active le chargement pour cette offre spécifique
-    setIsApplying(offer.id);
+    // Pré-vérification côté client
+    if (appliedOfferIds.includes(offer.id)) {
+        alert("⚠️ Vous avez déjà postulé à cette offre.");
+        return;
+    }
+
+    setApplyingOfferId(offer.id);
 
     try {
       await API.post(`/candidates/${candidateId}/evaluate`, {
         jobDescription: offer.description,
         offerId: offer.id,
       });
-      alert("✅ Candidature envoyée avec succès !");
+
+      alert(`✅ Candidature envoyée avec succès pour "${offer.title}" !`);
+
+      // --- NOUVEAU : Ajouter l'ID à la liste locale immédiatement ---
+      setAppliedOfferIds(prev => [...prev, offer.id]);
+
     } catch (err) {
       console.error(err);
-      const errorMsg = err.response?.data?.message || err.response?.data || "";
+      const errorResponse = err.response?.data;
+      const errorMsg = typeof errorResponse === "string"
+        ? errorResponse
+        : (errorResponse?.message || JSON.stringify(errorResponse));
 
-      if (typeof errorMsg === "string" && errorMsg.includes("ALREADY_APPLIED")) {
-         alert("⚠️ Vous avez déjà postulé à cette offre.");
-      } else if (typeof errorMsg === "string" && errorMsg.includes("CV not found")) {
-         alert("❌ Vous devez d'abord ajouter un CV à votre profil pour postuler.");
+      if (errorMsg && errorMsg.includes("ALREADY_APPLIED")) {
+         alert("⚠️ Vous avez DÉJÀ postulé à cette offre.");
+         // On synchronise la liste au cas où
+         setAppliedOfferIds(prev => [...prev, offer.id]);
+      } else if (errorMsg && errorMsg.includes("CV not found")) {
+         alert("❌ CV manquant. Veuillez compléter votre profil.");
          handleOpenProfileModal();
       } else {
-         alert("❌ Erreur lors de la candidature.");
+         alert("❌ Une erreur est survenue lors de la candidature.");
       }
     } finally {
-      // Désactive le chargement quoi qu'il arrive (succès ou erreur)
-      setIsApplying(null);
+      setApplyingOfferId(null);
     }
   };
 
-  // --- Logique du Modal de Profil ---
-  const loadProfile = useCallback(async () => {
-    if (!candidateId) return;
-    try {
-      const res = await API.get(`/candidates/${candidateId}`);
-      setFullName(res.data.fullName || "");
-      setEmail(res.data.email || "");
-      setTitre(res.data.titre || "");
-      setTelephone(res.data.telephone || "");
-    } catch (err) {
-      console.error("Erreur chargement profil", err);
-    }
-  }, [candidateId]);
-
-  const handleOpenProfileModal = async () => {
-    await loadProfile();
+  // --- Gestion Modal Profil ---
+  const handleOpenProfileModal = () => {
+    loadData();
     setProfileMessage(null);
     setIsProfileModalOpen(true);
   };
@@ -108,13 +143,12 @@ export default function CandidateDashboard() {
     setProfileMessage(null);
 
     try {
-      await API.put(`/candidates/${candidateId}`, {
-        fullName, email, titre, telephone
-      });
+      await API.put(`/candidates/${candidateId}`, { fullName, email, titre, telephone });
       setProfileMessage({ type: "success", text: "Profil mis à jour !" });
+      loadData();
     } catch (err) {
       console.error("Erreur MAJ Profil:", err);
-      setProfileMessage({ type: "danger", text: "Erreur (infos) !" });
+      setProfileMessage({ type: "danger", text: "Erreur lors de la mise à jour." });
       return;
     }
 
@@ -129,22 +163,22 @@ export default function CandidateDashboard() {
         setCv(null);
       } catch (err) {
         console.error("Erreur Upload CV:", err);
-        setProfileMessage({ type: "danger", text: "Erreur (CV) !" });
+        setProfileMessage({ type: "danger", text: "Erreur lors de l'envoi du CV." });
       }
     }
   };
 
-
   return (
     <div className="container my-4">
        <div className="d-flex justify-content-between align-items-center mb-3">
-        <h2>🔎 Offres disponibles</h2>
+        <h2>
+            {candidateProfile ? `Bonjour ${candidateProfile.fullName.split(' ')[0]} 👋` : "Offres disponibles"}
+        </h2>
         <div>
           <button className="btn btn-outline-primary me-2" onClick={handleOpenProfileModal}>
             Gérer mon profil
           </button>
-          <button className="btn btn-outline-secondary"
-                  onClick={() => { localStorage.clear(); window.location.reload(); }}>
+          <button className="btn btn-outline-secondary" onClick={() => { localStorage.clear(); window.location.reload(); }}>
             Déconnexion
           </button>
         </div>
@@ -155,92 +189,93 @@ export default function CandidateDashboard() {
              value={query}
              onChange={e => setQuery(e.target.value)} />
 
+      {candidateProfile && candidateProfile.titre && !query && (
+          <div className="mb-3 text-muted small">
+              💡 Les offres sont triées par pertinence avec votre titre : <strong>{candidateProfile.titre}</strong>
+          </div>
+      )}
+
       <div className="row">
         {filtered.map(o => {
-          // On vérifie si c'est l'offre en cours de chargement
-          const isLoadingThisOffer = isApplying === o.id;
+          const isMatch = candidateProfile?.titre && o.title.toLowerCase().includes(candidateProfile.titre.toLowerCase());
+
+          const isLoading = applyingOfferId === o.id;
+          const isGlobalLoading = applyingOfferId !== null;
+
+          // --- NOUVEAU : Vérifier si postulé ---
+          const hasApplied = appliedOfferIds.includes(o.id);
 
           return (
-            <div key={o.id} className="col-md-12">
-              <div className="card mb-4 shadow-sm">
-                <div className="card-body">
+          <div key={o.id} className="col-md-12">
+            <div className={`card mb-4 shadow-sm ${isMatch ? 'border-primary border-2' : ''}`}>
+              <div className="card-body">
 
-                  <div className="d-flex justify-content-between">
-                      <h5 className="card-title text-primary">{o.title}</h5>
-                      <small className="text-muted">Publié le {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : 'Récemment'}</small>
-                  </div>
-
-                  {/* --- NOUVEAU BLOC : INFOS ENTREPRISE (RH) --- */}
-                  {o.rh && (
-                      <div className="alert alert-light border py-2 px-3 small mb-3">
-                          <strong className="text-dark">🏢 {o.rh.nomEntreprise || "Entreprise confidentielle"}</strong>
-                          <div className="mt-1 text-muted">
-                              {o.rh.siteWebEntreprise && (
-                                  <span className="me-3">
-                                      🌐 <a href={o.rh.siteWebEntreprise} target="_blank" rel="noreferrer" className="text-decoration-none">{o.rh.siteWebEntreprise}</a>
-                                  </span>
-                              )}
-                              {o.rh.adresseEntreprise && (
-                                  <span>📍 {o.rh.adresseEntreprise}</span>
-                              )}
-                          </div>
-                      </div>
-                  )}
-                  {/* --- FIN DU BLOC --- */}
-
-                  <div className="d-flex flex-wrap gap-2 mb-3">
-                    {o.skills && o.skills.split(',').filter(s => s).map(skill => (
-                      <span key={skill} className="badge bg-secondary fw-normal">{skill}</span>
-                    ))}
-                  </div>
-
-                  <div className="row small text-muted border-top border-bottom py-3 mb-3 mx-0 bg-light rounded">
-                    <div className="col-sm-6 col-lg-3 mb-2">
-                      <strong>Contrat :</strong> {o.typeContrat || 'Non spécifié'}
-                    </div>
-                    <div className="col-sm-6 col-lg-3 mb-2">
-                      <strong>Durée :</strong> {o.duree || 'Non spécifié'}
-                    </div>
-                    <div className="col-sm-6 col-lg-3 mb-2">
-                      <strong>Rémunération :</strong> {o.remuneration || 'Non spécifié'}
-                    </div>
-                    <div className="col-sm-6 col-lg-3 mb-2">
-                      <strong>Expérience :</strong> {o.experience || 'Non spécifié'}
-                    </div>
-                  </div>
-
-                  <p
-                    className="card-text mb-4"
-                    style={{
-                      whiteSpace: 'pre-wrap',
-                      maxHeight: '250px',
-                      overflowY: 'auto',
-                      padding: '10px',
-                    }}
-                  >
-                    {o.description || 'Aucune description fournie.'}
-                  </p>
-
-                  <button
-                    className="btn btn-success"
-                    onClick={() => handleApply(o)}
-                    disabled={isApplying !== null} // Désactive tous les boutons si une requête est en cours
-                    style={{ minWidth: '150px' }} // Pour éviter que le bouton change de taille
-                  >
-                    {isLoadingThisOffer ? (
-                      <>
-                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        Analyse en cours...
-                      </>
-                    ) : (
-                      "Postuler avec mon profil"
-                    )}
-                  </button>
+                <div className="d-flex justify-content-between">
+                    <h5 className="card-title text-primary">
+                        {o.title}
+                        {isMatch && <span className="badge bg-primary ms-2" style={{fontSize: '0.6em'}}>⭐ Recommandé</span>}
+                    </h5>
+                    <small className="text-muted">Publié le {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : 'Récemment'}</small>
                 </div>
+
+                {o.rh && (
+                    <div className="alert alert-light border py-2 px-3 small mb-3">
+                        <strong className="text-dark">🏢 {o.rh.nomEntreprise || "Entreprise confidentielle"}</strong>
+                        <div className="mt-1 text-muted">
+                            {o.rh.siteWebEntreprise && (
+                                <span className="me-3">
+                                    🌐 <a href={o.rh.siteWebEntreprise} target="_blank" rel="noreferrer" className="text-decoration-none">{o.rh.siteWebEntreprise}</a>
+                                </span>
+                            )}
+                            {o.rh.adresseEntreprise && <span>📍 {o.rh.adresseEntreprise}</span>}
+                        </div>
+                    </div>
+                )}
+
+                <div className="d-flex flex-wrap gap-2 mb-3">
+                  {o.skills && o.skills.split(',').filter(s => s).map(skill => (
+                    <span key={skill} className="badge bg-secondary fw-normal">{skill}</span>
+                  ))}
+                </div>
+
+                <div className="row small text-muted border-top border-bottom py-3 mb-3 mx-0 bg-light rounded">
+                  <div className="col-sm-6 col-lg-3 mb-2"><strong>Contrat :</strong> {o.typeContrat || 'Non spécifié'}</div>
+                  <div className="col-sm-6 col-lg-3 mb-2"><strong>Durée :</strong> {o.duree || 'Non spécifié'}</div>
+                  <div className="col-sm-6 col-lg-3 mb-2"><strong>Rémunération :</strong> {o.remuneration || 'Non spécifié'}</div>
+                  <div className="col-sm-6 col-lg-3 mb-2"><strong>Expérience :</strong> {o.experience || 'Non spécifié'}</div>
+                </div>
+
+                <p className="card-text mb-4" style={{whiteSpace: 'pre-wrap', maxHeight: '250px', overflowY: 'auto', padding: '10px'}}>
+                  {o.description || 'Aucune description fournie.'}
+                </p>
+
+                {/* --- NOUVEAU : Condition d'affichage du bouton --- */}
+                {hasApplied ? (
+                    <button className="btn btn-secondary" disabled style={{ minWidth: '180px' }}>
+                        ✅ Déjà postulé
+                    </button>
+                ) : (
+                    <button
+                      className="btn btn-success"
+                      onClick={() => handleApply(o)}
+                      disabled={isGlobalLoading} // Bloque si une autre action en cours
+                      style={{ minWidth: '180px' }}
+                    >
+                      {isLoading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        "Postuler avec mon profil"
+                      )}
+                    </button>
+                )}
+
               </div>
             </div>
-          );
-        })}
+          </div>
+        )})}
 
         {!filtered.length && (
             <div className="text-center py-5">
@@ -249,7 +284,7 @@ export default function CandidateDashboard() {
         )}
       </div>
 
-      {/* --- MODAL DE PROFIL --- */}
+      {/* --- MODAL DE PROFIL (Reste inchangé) --- */}
       {isProfileModalOpen && (
         <>
           <div className="modal-backdrop fade show" style={{ display: 'block' }}></div>
@@ -264,18 +299,9 @@ export default function CandidateDashboard() {
                   <div className="modal-body">
                     <p className="small text-muted">Modifiez vos infos pour vos candidatures.</p>
                     {profileMessage && <div className={`alert alert-${profileMessage.type} small py-2`}>{profileMessage.text}</div>}
-                    <div className="mb-3">
-                      <label className="form-label">Titre</label>
-                      <input className="form-control" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Développeur..." />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">Téléphone</label>
-                      <input className="form-control" value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="06..." />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label">CV (PDF)</label>
-                      <input type="file" className="form-control" accept="application/pdf" onChange={(e) => setCv(e.target.files[0])} />
-                    </div>
+                    <div className="mb-3"><label className="form-label">Titre</label><input className="form-control" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Développeur..." /></div>
+                    <div className="mb-3"><label className="form-label">Téléphone</label><input className="form-control" value={telephone} onChange={(e) => setTelephone(e.target.value)} placeholder="06..." /></div>
+                    <div className="mb-3"><label className="form-label">CV (PDF)</label><input type="file" className="form-control" accept="application/pdf" onChange={(e) => setCv(e.target.files[0])} /></div>
                   </div>
                   <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={() => setIsProfileModalOpen(false)}>Fermer</button>

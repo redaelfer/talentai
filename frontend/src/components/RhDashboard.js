@@ -1,18 +1,17 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { API } from "../api";
 import { useNavigate } from "react-router-dom";
+import RhNotifications from "./RhNotifications";
 
 export default function RhDashboard() {
   const [offers, setOffers] = useState([]);
   const [selectedOffer, setSelectedOffer] = useState(null);
 
-  // On récupère l'ID du RH depuis le localStorage
   const [rhId] = useState(localStorage.getItem("userId"));
   const navigate = useNavigate();
 
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  // États formulaire création
   const [title, setTitle] = useState("");
   const [skills, setSkills] = useState("");
   const [description, setDescription] = useState("");
@@ -25,16 +24,13 @@ export default function RhDashboard() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingOffer, setEditingOffer] = useState(null);
 
-  // --- 1. CHARGEMENT DES OFFRES (FILTRÉES PAR RH) ---
   const loadOffers = useCallback(async () => {
     if (!rhId) return;
     try {
-      // On appelle le nouveau endpoint spécifique au RH
       const res = await API.get(`/offers/rh/${rhId}`);
       setOffers(res.data);
 
       if (selectedOffer) {
-        // Rafraîchir l'offre sélectionnée si elle existe toujours
         const stillExists = res.data.find(o => o.id === selectedOffer.id);
         setSelectedOffer(stillExists || null);
       }
@@ -55,7 +51,7 @@ export default function RhDashboard() {
 
   useEffect(() => {
     loadOffers();
-  }, [rhId]); // Se lance quand l'ID du RH est dispo
+  }, [rhId]);
 
   useEffect(() => {
     if (selectedOffer) {
@@ -65,7 +61,6 @@ export default function RhDashboard() {
     }
   }, [selectedOffer, loadEvaluations]);
 
-  // --- 2. CRÉATION D'OFFRE (AVEC ID DU RH) ---
   const createOffer = async (e) => {
     e.preventDefault();
     try {
@@ -77,10 +72,9 @@ export default function RhDashboard() {
         remuneration,
         experience,
         typeContrat,
-        rhId: rhId // <-- IMPORTANT : On envoie l'ID du RH
+        rhId: rhId
       });
 
-      // Reset form
       setTitle(""); setSkills(""); setDescription("");
       setDuree(""); setRemuneration(""); setExperience(""); setTypeContrat("");
       setShowCreateForm(false);
@@ -105,7 +99,6 @@ export default function RhDashboard() {
     }
   };
 
-  // ... (Logique d'édition inchangée, on passe juste les fonctions) ...
   const handleEditClick = (offer) => { setEditingOffer(offer); setIsEditModalOpen(true); };
   const handleCloseModal = () => { setIsEditModalOpen(false); setEditingOffer(null); };
   const handleEditFormChange = (e) => { const { name, value } = e.target; setEditingOffer(prev => ({ ...prev, [name]: value })); };
@@ -113,7 +106,6 @@ export default function RhDashboard() {
   const handleUpdateOffer = async (e) => {
     e.preventDefault();
     try {
-        // On s'assure de renvoyer l'ID du RH lors de la mise à jour aussi
         const payload = { ...editingOffer, rhId: rhId };
         await API.put(`/offers/${editingOffer.id}`, payload);
         handleCloseModal();
@@ -125,14 +117,16 @@ export default function RhDashboard() {
     <div className="container my-4">
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2>👔 Espace RH</h2>
-        <div>
-            <button className="btn btn-primary me-2" onClick={() => navigate("/rh/kanban")}>
+        <div className="d-flex align-items-center">
+            <RhNotifications />
+            <button className="btn btn-primary ms-3 me-2" onClick={() => navigate("/rh/kanban")}>
                 📊 Voir Workflow Kanban
             </button>
             <button className="btn btn-outline-secondary" onClick={() => { localStorage.clear(); window.location.reload(); }}>
                 Déconnexion
             </button>
-        </div>      </div>
+        </div>
+      </div>
 
       <div className="row">
         {/* Colonne GAUCHE : Liste des offres */}
@@ -199,7 +193,6 @@ export default function RhDashboard() {
                     </div>
                   </div>
 
-                  {/* --- 3. AFFICHAGE DES INFOS DU RH/ENTREPRISE --- */}
                   {selectedOffer.rh && (
                     <div className="alert alert-info py-2 px-3 small mb-3">
                         <strong>Entreprise :</strong> {selectedOffer.rh.nomEntreprise || "Non spécifié"} <br/>
@@ -253,7 +246,7 @@ export default function RhDashboard() {
         </div>
       </div>
 
-      {/* Modal d'édition (simplifié pour l'exemple) */}
+      {/* Modal d'édition */}
       {isEditModalOpen && (
         <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
             <div className="modal-dialog">
@@ -263,7 +256,6 @@ export default function RhDashboard() {
                         <form id="editForm" onSubmit={handleUpdateOffer}>
                             <input className="form-control mb-2" name="title" value={editingOffer.title} onChange={handleEditFormChange} />
                             <textarea className="form-control mb-2" name="description" rows="5" value={editingOffer.description} onChange={handleEditFormChange} />
-                            {/* ... autres champs ... */}
                         </form>
                     </div>
                     <div className="modal-footer">

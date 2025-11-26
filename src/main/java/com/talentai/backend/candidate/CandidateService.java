@@ -9,11 +9,13 @@ import lombok.RequiredArgsConstructor;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,8 @@ public class CandidateService {
     private final OfferRepository offerRepository;
     private final EvaluationRepository evaluationRepository;
     private final AiService aiService;
+
+    private final SimpMessagingTemplate messagingTemplate;
 
     public List<Candidate> all() {
         return candidateRepository.findAll();
@@ -44,19 +48,15 @@ public class CandidateService {
     }
 
     public Candidate uploadCv(Long id, MultipartFile file) throws IOException {
-        // On récupère le candidat existant
         Candidate candidate = one(id);
-
         candidate.setCvFile(file.getBytes());
         candidate.setCvFileName(file.getOriginalFilename());
         candidate.setCvContentType(file.getContentType());
-
         return candidateRepository.save(candidate);
     }
 
     public int evaluateCv(Long candidateId, String jobDescription, Long offerId) throws IOException {
         if (evaluationRepository.existsByCandidateIdAndOfferId(candidateId, offerId)) {
-            // On lance une exception avec un message précis que le frontend pourra détecter
             throw new RuntimeException("ALREADY_APPLIED");
         }
         Candidate candidate = one(candidateId);
@@ -91,19 +91,27 @@ public class CandidateService {
 
         evaluationRepository.save(evaluation);
 
+        if (offer.getRh() != null) {
+            String destination = "/topic/rh/" + offer.getRh().getId() + "/notifications";
+            String notificationMessage = "Nouvelle candidature de " + candidate.getFullName() + " pour " + offer.getTitle();
+
+            // Envoi d'un objet JSON simple
+            messagingTemplate.convertAndSend(destination, Map.of(
+                    "message", notificationMessage,
+                    "score", score,
+                    "offerId", offer.getId()
+            ));
+        }
+
         return score;
     }
 
-    // --- MISE À JOUR SIMPLIFIÉE (Plus de lien avec User) ---
     public Candidate updateCandidate(Long id, CandidateRequest candidateRequest) {
         Candidate existingCandidate = one(id);
-
-        // On met à jour uniquement la table Candidate
         existingCandidate.setFullName(candidateRequest.getFullName());
         existingCandidate.setEmail(candidateRequest.getEmail());
         existingCandidate.setTitre(candidateRequest.getTitre());
         existingCandidate.setTelephone(candidateRequest.getTelephone());
-
         return candidateRepository.save(existingCandidate);
     }
 

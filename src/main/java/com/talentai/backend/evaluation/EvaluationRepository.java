@@ -12,5 +12,6 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
     List<Evaluation> findByOffer(Offer offer);
     List<Evaluation> findByCandidate(Candidate candidate);
     List<Evaluation> findByOfferId(Long offerId);
+    List<Evaluation> findByCandidateId(Long candidateId);
     boolean existsByCandidateIdAndOfferId(Long candidateId, Long offerId);
 }
