@@ -7,12 +7,10 @@ export default function CandidateDashboard() {
   const [query, setQuery] = useState("");
 
   const [candidateProfile, setCandidateProfile] = useState(null);
-
   const [appliedOfferIds, setAppliedOfferIds] = useState([]);
-
   const [applyingOfferId, setApplyingOfferId] = useState(null);
 
-  // --- NOUVEAUX ÉTATS POUR LA VUE CANDIDATURES & IA ---
+  // --- ÉTATS POUR LA VUE CANDIDATURES & IA ---
   const [view, setView] = useState("OFFERS"); // 'OFFERS' ou 'APPLICATIONS'
   const [myApplications, setMyApplications] = useState([]);
   const [showTrainingModal, setShowTrainingModal] = useState(false);
@@ -46,13 +44,13 @@ export default function CandidateDashboard() {
             setTelephone(profileRes.data.telephone || "");
         }
 
-        // --- Récupérer les IDs pour désactiver les boutons ---
+        // --- Récupérer les IDs pour désactiver les boutons "Postuler" ---
         try {
             const appliedRes = await API.get(`/evaluations/candidate/${candidateId}/offer-ids`);
             setAppliedOfferIds(appliedRes.data);
         } catch (err) { console.error(err); }
 
-        // --- NOUVEAU : Charger les détails complets des candidatures ---
+        // --- Récupérer les détails complets des candidatures (pour l'onglet Mes Candidatures) ---
         try {
             const myAppsRes = await API.get(`/evaluations/candidate/${candidateId}/applications`);
             setMyApplications(myAppsRes.data);
@@ -88,7 +86,7 @@ export default function CandidateDashboard() {
   }, [offers, query, candidateProfile]);
 
 
-  // --- ACTION POSTULER ---
+  // --- ACTION : POSTULER ---
   const handleApply = async (offer) => {
     if (!candidateId) {
       alert("Erreur: ID Candidat non trouvé. Veuillez vous reconnecter.");
@@ -135,15 +133,20 @@ export default function CandidateDashboard() {
     }
   };
 
-// --- FONCTION MANQUANTE : Lancer l'entraînement IA ---
+  // --- ACTION : ENTRAÎNEMENT IA ---
   const handleStartTraining = async (application) => {
-    setTrainingData({ questions: application.interviewQuestions, loading: !application.interviewQuestions });
+    // Affiche la modale immédiatement avec un état de chargement si les questions n'existent pas encore
+    setTrainingData({
+        questions: application.interviewQuestions,
+        loading: !application.interviewQuestions
+    });
     setShowTrainingModal(true);
 
+    // Si pas de questions déjà générées, on appelle l'API
     if (!application.interviewQuestions) {
         try {
             const res = await API.post(`/evaluations/${application.evaluationId}/questions`);
-            const newQuestions = res.data;
+            const newQuestions = res.data; // Le backend retourne le HTML directement (String)
 
             setTrainingData({ questions: newQuestions, loading: false });
 
@@ -155,14 +158,14 @@ export default function CandidateDashboard() {
             ));
         } catch (err) {
             console.error(err);
-            setTrainingData({ questions: "Erreur lors de la génération.", loading: false });
+            setTrainingData({ questions: "Erreur lors de la génération des questions.", loading: false });
         }
     }
   };
 
   // --- Gestion Modal Profil ---
   const handleOpenProfileModal = () => {
-    loadData();
+    loadData(); // Recharge pour être sûr d'avoir les infos à jour
     setProfileMessage(null);
     setIsProfileModalOpen(true);
   };
@@ -174,7 +177,7 @@ export default function CandidateDashboard() {
     try {
       await API.put(`/candidates/${candidateId}`, { fullName, email, titre, telephone });
       setProfileMessage({ type: "success", text: "Profil mis à jour !" });
-      loadData();
+      loadData(); // Met à jour l'interface principale
     } catch (err) {
       console.error("Erreur MAJ Profil:", err);
       setProfileMessage({ type: "danger", text: "Erreur lors de la mise à jour." });
@@ -213,7 +216,7 @@ export default function CandidateDashboard() {
         </div>
       </div>
 
-      {/* --- NOUVEAU : Navigation par onglets --- */}
+      {/* --- NAVIGATION ONGLETS --- */}
       <ul className="nav nav-tabs mb-4">
         <li className="nav-item">
             <button
@@ -228,12 +231,12 @@ export default function CandidateDashboard() {
                 className={`nav-link ${view === 'APPLICATIONS' ? 'active' : ''}`}
                 onClick={() => setView('APPLICATIONS')}
             >
-                📂 Mes Candidatures <span className="badge bg-secondary">{myApplications.length}</span>
+                📂 Mes Candidatures <span className="badge bg-secondary ms-1">{myApplications.length}</span>
             </button>
         </li>
       </ul>
 
-      {/* --- VUE 1 : LISTE DES OFFRES (VOTRE CODE EXISTANT) --- */}
+      {/* --- VUE 1 : LISTE DES OFFRES --- */}
       {view === 'OFFERS' && (
         <>
             <input className="form-control mb-3"
@@ -250,10 +253,8 @@ export default function CandidateDashboard() {
             <div className="row">
                 {filtered.map(o => {
                 const isMatch = candidateProfile?.titre && o.title.toLowerCase().includes(candidateProfile.titre.toLowerCase());
-
                 const isLoading = applyingOfferId === o.id;
                 const isGlobalLoading = applyingOfferId !== null;
-
                 const hasApplied = appliedOfferIds.includes(o.id);
 
                 return (
@@ -336,72 +337,104 @@ export default function CandidateDashboard() {
         </>
       )}
 
+      {/* --- VUE 2 : MES CANDIDATURES --- */}
       {view === "APPLICATIONS" && (
-              <div className="row">
-                  {myApplications.length === 0 && (
-                      <div className="text-center py-5 text-muted">Vous n'avez pas encore postulé.</div>
-                  )}
-                  {myApplications.map(app => (
-                      <div key={app.evaluationId} className="col-md-6">
-                          <div className="card mb-3 shadow-sm h-100">
-                              <div className="card-body d-flex flex-column">
-                                  <h5 className="card-title text-primary">{app.offerTitle}</h5>
-                                  <h6 className="card-subtitle mb-2 text-muted">{app.companyName}</h6>
-                                  <div className="mb-3">
-                                      <span className={`badge ${app.status === 'ACCEPTED' ? 'bg-success' : app.status === 'REJECTED' ? 'bg-danger' : 'bg-warning text-dark'}`}>
-                                          Statut : {app.status === 'NEW' ? 'En attente' : app.status}
-                                      </span>
-                                  </div>
-                                  <button className="btn btn-outline-primary w-100 mt-auto" onClick={() => handleStartTraining(app)}>
-                                      🤖 Entraînement à l'entretien
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-                  ))}
-              </div>
+        <div className="row">
+            {myApplications.length === 0 && (
+                <div className="text-center py-5 text-muted">
+                    <h4>Vous n'avez pas encore postulé.</h4>
+                    <button className="btn btn-link" onClick={() => setView('OFFERS')}>Voir les offres</button>
+                </div>
             )}
+            {myApplications.map(app => (
+                <div key={app.evaluationId} className="col-md-6">
+                    <div className="card mb-4 shadow-sm h-100">
+                        <div className="card-body d-flex flex-column">
+                            <h5 className="card-title text-primary">{app.offerTitle}</h5>
+                            <h6 className="card-subtitle mb-3 text-muted">🏢 {app.companyName}</h6>
 
-            {/* --- MODAL IA --- */}
-            {showTrainingModal && trainingData && (
-              <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
-                  <div className="modal-dialog modal-lg modal-dialog-scrollable">
-                      <div className="modal-content">
-                          <div className="modal-header bg-primary text-white">
-                              <h5 className="modal-title">🤖 Coach IA</h5>
-                              <button className="btn-close btn-close-white" onClick={() => setShowTrainingModal(false)}></button>
-                          </div>
-                          <div className="modal-body">
-                              {trainingData.loading ? (
-                                  <div className="text-center py-5"><div className="spinner-border text-primary"></div><p>Génération des questions...</p></div>
-                              ) : (
-                                  <div className="p-3 bg-light border rounded" dangerouslySetInnerHTML={{ __html: trainingData.questions }} />
-                              )}
-                          </div>
-                      </div>
-                  </div>
-              </div>
-            )}
+                            <div className="mb-3">
+                                <span className={`badge p-2 ${app.status === 'ACCEPTED' ? 'bg-success' : app.status === 'REJECTED' ? 'bg-danger' : app.status === 'INTERVIEW' ? 'bg-info' : 'bg-warning text-dark'}`}>
+                                    Statut : {app.status === 'NEW' ? 'En attente' : app.status === 'INTERVIEW' ? 'Entretien' : app.status}
+                                </span>
+                            </div>
 
-            {/* --- MODAL PROFIL (inchangé) --- */}
-            {isProfileModalOpen && (
-              /* ... Votre modal profil existant ... */
-              <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
-                <div className="modal-dialog modal-dialog-centered">
-                    <div className="modal-content">
-                      <form onSubmit={handleProfileUpdate}>
-                        <div className="modal-header"><h5 className="modal-title">Mon Profil</h5><button type="button" className="btn-close" onClick={() => setIsProfileModalOpen(false)}></button></div>
-                        <div className="modal-body">
-                          <div className="mb-3"><label>Titre</label><input className="form-control" value={titre} onChange={(e) => setTitre(e.target.value)} /></div>
-                          <div className="mb-3"><label>Téléphone</label><input className="form-control" value={telephone} onChange={(e) => setTelephone(e.target.value)} /></div>
-                          <div className="mb-3"><label>CV (PDF)</label><input type="file" className="form-control" accept="application/pdf" onChange={(e) => setCv(e.target.files[0])} /></div>
+                            <p className="card-text small text-muted flex-grow-1">
+                                {app.offerDescription?.substring(0, 100)}...
+                            </p>
+
+                            <div className="d-grid mt-3">
+                                <button className="btn btn-outline-primary" onClick={() => handleStartTraining(app)}>
+                                    🤖 Entraînement à l'entretien
+                                </button>
+                            </div>
                         </div>
-                        <div className="modal-footer"><button className="btn btn-primary" type="submit">Enregistrer</button></div>
-                      </form>
                     </div>
                 </div>
+            ))}
+        </div>
+      )}
+
+      {/* --- MODAL IA (Questions Entretien) --- */}
+      {showTrainingModal && trainingData && (
+        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+            <div className="modal-dialog modal-lg modal-dialog-scrollable">
+                <div className="modal-content">
+                    <div className="modal-header bg-primary text-white">
+                        <h5 className="modal-title">🤖 Coach IA - Préparation Entretien</h5>
+                        <button className="btn-close btn-close-white" onClick={() => setShowTrainingModal(false)}></button>
+                    </div>
+                    <div className="modal-body">
+                        {trainingData.loading ? (
+                            <div className="text-center py-5">
+                                <div className="spinner-border text-primary mb-3" style={{width: '3rem', height: '3rem'}}></div>
+                                <h5>L'IA analyse votre CV et l'offre...</h5>
+                                <p className="text-muted">Génération des questions personnalisées en cours.</p>
+                            </div>
+                        ) : (
+                            <div>
+                                <div className="alert alert-info">
+                                    Voici des questions susceptibles de vous être posées pour ce poste, basées sur l'analyse de vos lacunes potentielles.
+                                </div>
+                                <div className="p-4 bg-light border rounded fs-5"
+                                     dangerouslySetInnerHTML={{ __html: trainingData.questions }} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" onClick={() => setShowTrainingModal(false)}>Fermer</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* --- MODAL PROFIL --- */}
+      {isProfileModalOpen && (
+        <div className="modal show d-block" style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <form onSubmit={handleProfileUpdate}>
+                  <div className="modal-header">
+                      <h5 className="modal-title">Mon Profil</h5>
+                      <button type="button" className="btn-close" onClick={() => setIsProfileModalOpen(false)}></button>
+                  </div>
+                  <div className="modal-body">
+                    {profileMessage && <div className={`alert alert-${profileMessage.type}`}>{profileMessage.text}</div>}
+                    <div className="mb-3"><label>Nom Complet</label><input className="form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} /></div>
+                    <div className="mb-3"><label>Email</label><input className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                    <div className="mb-3"><label>Titre</label><input className="form-control" value={titre} onChange={(e) => setTitre(e.target.value)} placeholder="Ex: Développeur Java" /></div>
+                    <div className="mb-3"><label>Téléphone</label><input className="form-control" value={telephone} onChange={(e) => setTelephone(e.target.value)} /></div>
+                    <div className="mb-3"><label>CV (PDF)</label><input type="file" className="form-control" accept="application/pdf" onChange={(e) => setCv(e.target.files[0])} /></div>
+                  </div>
+                  <div className="modal-footer">
+                      <button className="btn btn-primary" type="submit">Enregistrer</button>
+                  </div>
+                </form>
               </div>
-            )}
           </div>
-        );
-      }
+        </div>
+      )}
+    </div>
+  );
+}
