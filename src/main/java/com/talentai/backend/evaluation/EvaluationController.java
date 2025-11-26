@@ -85,6 +85,23 @@ public class EvaluationController {
                 .collect(Collectors.toList());
     }
 
+    @GetMapping("/candidate/{candidateId}/applications")
+    @Transactional(readOnly = true)
+    public List<ApplicationDTO> getCandidateApplications(@PathVariable Long candidateId) {
+        List<Evaluation> evaluations = repository.findByCandidateId(candidateId);
+
+        return evaluations.stream()
+                .map(e -> new ApplicationDTO(
+                        e.getId(), // ID de l'évaluation (nécessaire pour l'IA)
+                        e.getOffer().getTitle(),
+                        e.getOffer().getDescription(),
+                        e.getOffer().getRh() != null ? e.getOffer().getRh().getNomEntreprise() : "Entreprise",
+                        e.getStatus(),
+                        e.getInterviewQuestions() // Si déjà générées
+                ))
+                .collect(Collectors.toList());
+    }
+
     public record EvaluationDTO(
             Long id,
             Long candidateId,
@@ -93,6 +110,15 @@ public class EvaluationController {
             String titre,
             String telephone,
             int score,
+            String status,
+            String interviewQuestions
+    ) {}
+
+    public record ApplicationDTO(
+            Long evaluationId,
+            String offerTitle,
+            String offerDescription,
+            String companyName,
             String status,
             String interviewQuestions
     ) {}
