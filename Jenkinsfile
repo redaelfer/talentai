@@ -23,7 +23,7 @@ pipeline {
 
         stage('3. Tests Unitaires') {
             steps {
-                sh './mvnw test'
+                sh './mvnw test -Dtestcontainers.ryuk.disabled=true'
             }
         }
 
