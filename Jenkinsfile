@@ -1,6 +1,9 @@
 pipeline {
     agent any
 
+    triggers {
+            pollSCM('H/2 * * * *')
+        }
     environment {
         TESTCONTAINERS_RYUK_DISABLED = 'true'
         CI = 'true'
