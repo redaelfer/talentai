@@ -139,7 +139,7 @@ export default function RhKanban() {
                                                 <strong>Exp:</strong> {ev.yearsOfExperience} ans <br/>
                                                 <strong>Skills:</strong> {JSON.parse(ev.skills || "[]").slice(0, 3).join(", ")}...
                                             </div>
-                                        )}
+                                        )} 
 
                                         {ev.summary ? (
                                             <div className="alert alert-secondary p-1 mb-2 small" style={{fontSize: '0.75em', lineHeight: '1.2'}}>
