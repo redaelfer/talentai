@@ -49,5 +49,17 @@ pipeline {
                 }
             }
         }
+
+        stage('6. Build & Push Docker') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-hub-creds') {
+                        def appImage = docker.build("votre-user/talentai-backend:${env.BUILD_NUMBER}")
+                        appImage.push()
+                        appImage.push("latest")
+                    }
+                }
+            }
+        }
     }
 }
