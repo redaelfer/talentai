@@ -1,4 +1,4 @@
-package com.talentai.backend;
+package com.talentai.backend.offer;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;

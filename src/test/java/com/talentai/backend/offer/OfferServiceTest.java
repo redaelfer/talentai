@@ -1,9 +1,5 @@
 package com.talentai.backend.offer;
 
-import com.talentai.backend.Offer;
-import com.talentai.backend.OfferRepository;
-import com.talentai.backend.OfferRequest;
-import com.talentai.backend.OfferService;
 import com.talentai.backend.rh.Rh;
 import com.talentai.backend.rh.RhRepository;
 import org.junit.jupiter.api.Test;

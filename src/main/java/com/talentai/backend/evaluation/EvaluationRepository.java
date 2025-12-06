@@ -1,7 +1,7 @@
 package com.talentai.backend.evaluation;
 
 import com.talentai.backend.candidate.Candidate;
-import com.talentai.backend.Offer;
+import com.talentai.backend.offer.Offer;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

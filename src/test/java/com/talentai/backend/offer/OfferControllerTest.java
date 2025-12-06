@@ -1,10 +1,6 @@
 package com.talentai.backend.offer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.talentai.backend.Offer;
-import com.talentai.backend.OfferController;
-import com.talentai.backend.OfferRequest;
-import com.talentai.backend.OfferService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;

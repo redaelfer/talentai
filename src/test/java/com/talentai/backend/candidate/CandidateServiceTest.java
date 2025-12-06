@@ -1,7 +1,7 @@
 package com.talentai.backend.candidate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.talentai.backend.OfferRepository;
+import com.talentai.backend.offer.OfferRepository;
 import com.talentai.backend.ai.AiService;
 import com.talentai.backend.evaluation.EvaluationRepository;
 import org.junit.jupiter.api.Test;
@@ -11,12 +11,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 

@@ -1,4 +1,4 @@
-package com.talentai.backend;
+package com.talentai.backend.offer;
 
 import com.talentai.backend.rh.Rh;
 import com.talentai.backend.rh.RhRepository;

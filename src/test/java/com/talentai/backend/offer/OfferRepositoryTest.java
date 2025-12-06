@@ -1,20 +1,16 @@
 package com.talentai.backend.offer;
 
-import com.talentai.backend.Offer;
-import com.talentai.backend.OfferRepository;
 import com.talentai.backend.rh.Rh;
 import com.talentai.backend.rh.RhRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 class OfferRepositoryTest {
 
     @Autowired
@@ -30,8 +26,14 @@ class OfferRepositoryTest {
         rh.setEmail("rh@test.com");
         rh = rhRepository.save(rh);
 
-        Offer o1 = Offer.builder().title("Dev 1").rh(rh).build();
-        Offer o2 = Offer.builder().title("Dev 2").rh(rh).build();
+        Offer o1 = new Offer();
+        o1.setTitle("Dev 1");
+        o1.setRh(rh);
+
+        Offer o2 = new Offer();
+        o2.setTitle("Dev 2");
+        o2.setRh(rh);
+
         offerRepository.save(o1);
         offerRepository.save(o2);
 

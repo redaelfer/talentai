@@ -1,4 +1,4 @@
-package com.talentai.backend;
+package com.talentai.backend.offer;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
