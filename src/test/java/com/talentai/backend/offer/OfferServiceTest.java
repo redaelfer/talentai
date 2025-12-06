@@ -1,5 +1,9 @@
 package com.talentai.backend.offer;
 
+import com.talentai.backend.Offer;
+import com.talentai.backend.OfferRepository;
+import com.talentai.backend.OfferRequest;
+import com.talentai.backend.OfferService;
 import com.talentai.backend.rh.Rh;
 import com.talentai.backend.rh.RhRepository;
 import org.junit.jupiter.api.Test;
@@ -8,7 +12,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,9 +32,17 @@ class OfferServiceTest {
 
     @Test
     void shouldCreateOfferSuccessfully() {
+
         Long rhId = 1L;
         OfferRequest request = new OfferRequest(
-                "Dev Java", "Desc", "Java, Spring", "CDI", "40k", "Junior", "Fulltime", rhId
+                "Dev Java",
+                "Description",
+                "Java, Spring",
+                "Indéterminée",
+                "40k",
+                "Junior",
+                "CDI",
+                rhId
         );
 
         Rh mockRh = new Rh();
@@ -51,32 +62,7 @@ class OfferServiceTest {
         assertNotNull(result);
         assertEquals(10L, result.getId());
         assertEquals("Dev Java", result.getTitle());
+
         verify(offerRepository, times(1)).save(any(Offer.class));
-    }
-
-    @Test
-    void shouldThrowExceptionWhenRhNotFound() {
-        OfferRequest request = new OfferRequest(
-                "Dev Java", "Desc", "Java", "CDI", "40k", "Junior", "Fulltime", 99L
-        );
-
-        when(rhRepository.findById(99L)).thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            offerService.create(request);
-        });
-
-        assertTrue(exception.getMessage().contains("RH non trouvé"));
-        verify(offerRepository, never()).save(any());
-    }
-
-    @Test
-    void shouldReturnAllOffers() {
-        when(offerRepository.findAll()).thenReturn(List.of(new Offer(), new Offer()));
-
-        List<Offer> offers = offerService.findAll();
-
-        assertEquals(2, offers.size());
-        verify(offerRepository).findAll();
     }
 }

@@ -1,10 +1,9 @@
 package com.talentai.backend.candidate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.talentai.backend.OfferRepository;
 import com.talentai.backend.ai.AiService;
 import com.talentai.backend.evaluation.EvaluationRepository;
-import com.talentai.backend.offer.Offer;
-import com.talentai.backend.offer.OfferRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
