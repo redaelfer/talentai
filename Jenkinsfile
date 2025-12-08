@@ -61,5 +61,19 @@ pipeline {
                 }
             }
         }
+
+        stage('7. Test de Charge (K6)') {
+                    steps {
+                        script {
+                            echo 'Lancement du test de charge K6...'
+                            sh """
+                                docker run --rm \
+                                --network talentai-network \
+                                -v \${PWD}/tests/k6:/scripts \
+                                grafana/k6 run /scripts/load-test.js
+                            """
+                        }
+                    }
+                }
     }
 }
