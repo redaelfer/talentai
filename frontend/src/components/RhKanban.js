@@ -151,7 +151,7 @@ export default function RhKanban() {
                                             </button>
                                         )}
 
-                                        <a href={`http://localhost:8080/api/candidates/${ev.candidateId}/cv`} target="_blank" rel="noreferrer" className="d-block small mb-2">📄 Voir CV</a>
+                                        <a href={`http://localhost:8081/api/candidates/${ev.candidateId}/cv`} target="_blank" rel="noreferrer" className="d-block small mb-2">📄 Voir CV</a>
 
                                         <div className="d-grid gap-1">
                                             <button className="btn btn-sm btn-outline-dark" onClick={() => handleGenerateQuestions(ev)}>🤖 Questions Entretien</button>

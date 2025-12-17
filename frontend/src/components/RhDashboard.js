@@ -232,7 +232,7 @@ export default function RhDashboard() {
                                     📧 {ev.email}
                                     {ev.telephone && <span className="ms-3">📞 {ev.telephone}</span>}
                                 </div>
-                            <a href={`http://localhost:8080/api/candidates/${ev.candidateId}/cv`} target="_blank" rel="noreferrer" className="small">Voir CV</a>
+                            <a href={`http://localhost:8081/api/candidates/${ev.candidateId}/cv`} target="_blank" rel="noreferrer" className="small">Voir CV</a>
                          </div>
                          <span className={`badge ${ev.score > 70 ? 'bg-success' : ev.score > 40 ? 'bg-warning text-dark' : 'bg-danger'}`}>
                            Score: {ev.score}/100
